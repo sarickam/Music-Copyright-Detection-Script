@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Song</title>
+  </head>
+  <body>
+    <h1>Upload a Song</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="audioFile" accept=".mp3" required />
+      <button type="submit">Upload</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+      document.getElementById("uploadForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+
+        const response = await fetch("/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        document.getElementById("result").innerText = JSON.stringify(result);
+      };
+    </script>
+  </body>
+</html>
