@@ -2,3 +2,5 @@ mysql-connector-python
 numpy
 librosa
 pydub
+psycopg2
+dotenv

@@ -2,24 +2,22 @@ const express = require('express');
 const fileUpload = require('express-fileupload');
 const { exec } = require('child_process');
 const path = require('path');
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 const fs = require('fs');
 
 const app = express();
 const port = 3000;
 
-// MySQL connection
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'root',
-    database: 'musicdb'
-});
-
-// Connect to MySQL
-db.connect(err => {
-    if (err) throw err;
-    console.log('Connected to MySQL');
+// PostgreSQL connection pool
+const pool = new Pool({
+    host: process.env.PG_HOST,          // Host from environment variables
+    user: process.env.PG_USER,          // User from environment variables
+    password: process.env.PG_PASSWORD,   // Password from environment variables
+    database: process.env.PG_DATABASE,   // Database from environment variables
+    port: process.env.PG_PORT || 5432,   // Port, default to 5432
+    max: 10,                              // Max number of clients
+    idleTimeoutMillis: 30000,            // Idle timeout
+    connectionTimeoutMillis: 2000,       // Connection timeout
 });
 
 // Middleware for file uploads
@@ -36,10 +34,10 @@ if (!fs.existsSync(uploadsDir)) {
 app.get('/', (req, res) => {
     res.send(`
         <h2>Upload a Music File</h2>
-        <form ref='uploadForm' 
-            id='uploadForm' 
-            action='/upload' 
-            method='post' 
+        <form ref='uploadForm'
+            id='uploadForm'
+            action='/upload'
+            method='post'
             encType='multipart/form-data'>
               <input type="file" name="audioFile" accept="audio/*" required/>
               <input type='submit' value='Upload!' />

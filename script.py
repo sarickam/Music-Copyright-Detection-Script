@@ -1,32 +1,48 @@
+import librosa
 import sys
 import json
-import mysql.connector
+import psycopg2
+import psycopg2.extras 
 import numpy as np
-import librosa
 from pydub import AudioSegment
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 def init_db():
     """Initialize database connection."""
-    return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password='root',
-        database='musicdb'
-    )
+    try:
+        return psycopg2.connect(
+            host=os.getenv('PG_HOST'),
+            user=os.getenv('PG_USER'),
+            password=os.getenv('PG_PASSWORD'),
+            database=os.getenv('PG_DATABASE'),
+            port=os.getenv('PG_PORT', 5432)
+        )
+    except Exception as e:
+        print("Failed to connect to the database:", e)
+        sys.exit(1) 
 
-def store_song_data(db, song_data):
-    """Store song data in the database."""
+def store_song_data(db, song_data, audio_file_path):
+    """Store song data and audio in the database."""
     cursor = db.cursor()
     try:
+        # Read the audio file in binary mode
+        with open(audio_file_path, 'rb') as audio_file:
+            audio_data = audio_file.read()
+            
         cursor.execute(
-            "INSERT INTO songs (song_name, mfcc, chroma, spectral_contrast) VALUES (%s, %s, %s, %s)",
-            (song_data['song_name'], json.dumps(song_data['mfcc']), json.dumps(song_data['chroma']), json.dumps(song_data['spectral_contrast']))
+            "INSERT INTO songs (song_name, audio_data, mfcc, chroma, spectral_contrast) VALUES (%s, %s, %s, %s, %s)",
+            (song_data['song_name'], psycopg2.Binary(audio_data), json.dumps(song_data['mfcc']),
+             json.dumps(song_data['chroma']), json.dumps(song_data['spectral_contrast']))
         )
         db.commit()
-    except mysql.connector.Error as err:
+    except psycopg2.Error as err:
         print(json.dumps({"error": str(err)}))
     finally:
         cursor.close()
+
 
 def convert_audio_to_wav(file_path):
     """Convert any audio file to wav using pydub."""
@@ -88,14 +104,19 @@ def calculate_similarity(song1, song2):
 
 def calculate_match_percentage(db, new_song_data):
     """Calculate match percentage with existing songs in the database."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cursor.execute("SELECT song_name, mfcc, chroma, spectral_contrast FROM songs")
     existing_songs = cursor.fetchall()
 
     for song in existing_songs:
-        song['mfcc'] = json.loads(song['mfcc'])
-        song['chroma'] = json.loads(song['chroma'])
-        song['spectral_contrast'] = json.loads(song['spectral_contrast'])
+        # Check if the values are already lists
+        if isinstance(song['mfcc'], str):
+            song['mfcc'] = json.loads(song['mfcc'])
+        if isinstance(song['chroma'], str):
+            song['chroma'] = json.loads(song['chroma'])
+        if isinstance(song['spectral_contrast'], str):
+            song['spectral_contrast'] = json.loads(song['spectral_contrast'])
+
         match_percentage = calculate_similarity(new_song_data, song)
 
         if match_percentage >= 80:
@@ -104,6 +125,7 @@ def calculate_match_percentage(db, new_song_data):
 
     cursor.close()
     return 0  # No match
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -139,7 +161,7 @@ if __name__ == '__main__':
 
     # Store the new song data if there's no copyright match
     if match_percentage < 70:
-        store_song_data(db, song_data_serializable)
+        store_song_data(db, song_data_serializable, audio_file_path)
 
     # Prepare output
     output = {
