@@ -29,6 +29,20 @@ This project provides a serverless API for uploading and processing audio files 
 ├── .env                     # Environment variables
 └── README.md                # Project documentation
 
+## Database
+
+create Database in postgres musicdb then run below query to create table
+
+
+CREATE TABLE songs (
+    song_id SERIAL PRIMARY KEY,                -- Auto-incrementing unique ID for each song
+    song_name VARCHAR(255) NOT NULL,           -- Name of the song
+    audio_data BYTEA NOT NULL,                 -- Binary data of the uploaded audio file
+    mfcc JSONB NOT NULL,                       -- MFCC features stored as JSON
+    chroma JSONB NOT NULL,                     -- Chroma features stored as JSON
+    spectral_contrast JSONB NOT NULL,          -- Spectral contrast features stored as JSON
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of when the song was added
+);
 
 
 -----Prerequisites
